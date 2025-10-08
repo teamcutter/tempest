@@ -1,0 +1,121 @@
+version: '3.8'
+
+services:
+  pulsar:
+    image: apachepulsar/pulsar:3.1.1
+    container_name: pulsar
+    ports:
+      - "6650:6650"
+      - "8080:8080"
+      - "9092:9092"  # для Kafka API
+    command: ["bin/pulsar", "standalone"]
+    environment:
+      - PULSAR_MEM=-Xms512m -Xmx512m
+    networks:
+      - my-network
+    healthcheck:
+      test: ["CMD", "bin/pulsar-admin", "brokers", "healthcheck"]
+      interval: 10s
+      timeout: 30s
+      retries: 10
+      start_period: 40s
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - my-network
+    depends_on:
+      pulsar:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - my-network
+    depends_on:
+      - prometheus
+
+  sensor:
+    build:
+      context: .
+      dockerfile: ./cmd/sensor/Dockerfile
+    container_name: sensor
+    depends_on:
+      pulsar:
+        condition: service_healthy
+    environment:
+      - PULSAR_URL=pulsar://pulsar:6650
+      - PULSAR_HTTP_URL=http://pulsar:8080
+    ports:
+      - "8081:8081"
+    networks:
+      - my-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  processor:
+    build:
+      context: .
+      dockerfile: ./cmd/processor/Dockerfile
+    container_name: processor
+    depends_on:
+      pulsar:
+        condition: service_healthy
+    environment:
+      - PULSAR_URL=pulsar://pulsar:6650
+      - PULSAR_HTTP_URL=http://pulsar:8080
+    ports:
+      - "8082:2112"
+    networks:
+      - my-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2112/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  alert-listener:
+    build:
+      context: .
+      dockerfile: ./cmd/alert-listener/Dockerfile
+    container_name: alert-listener
+    depends_on:
+      pulsar:
+        condition: service_healthy
+    environment:
+      - PULSAR_URL=pulsar://pulsar:6650
+      - PULSAR_HTTP_URL=http://pulsar:8080
+    ports:
+      - "8083:8083"
+    networks:
+      - my-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8083/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  my-network:
+    driver: bridge
+
+volumes:
+  grafana_data:
