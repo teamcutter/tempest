@@ -116,4 +116,3 @@ networks:
 
 volumes:
   grafana_data:
-    driver: local
