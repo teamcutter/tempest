@@ -8,10 +8,12 @@ import (
 
 	"github.com/teamcutter/tempest/internal/sensorpb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
-	conn, err := grpc.NewClient("localhost:50051")
+	conn, err := grpc.NewClient("processor:50051", 
+	grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		panic(err)
 	}
@@ -32,6 +34,6 @@ func main() {
 			fmt.Println("Send error:", err)
 		}
 
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(300 * time.Millisecond)
 	}
 }
