@@ -2,16 +2,17 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"time"
+	"net"
+
+	"net/http"
 
 	"github.com/apache/pulsar-client-go/pulsar"
-	"github.com/teamcutter/tempest/internal/model"
-	"github.com/teamcutter/tempest/internal/pulsar_client"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"net/http"
+	"github.com/teamcutter/tempest/internal/pulsar_client"
+	"github.com/teamcutter/tempest/internal/sensorpb"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -25,6 +26,26 @@ var (
 	})
 )
 
+type SensorServer struct{
+	sensorpb.UnimplementedSensorServiceServer
+	producer pulsar.Producer
+}
+
+func (s *SensorServer) SendData(ctx context.Context, data *sensorpb.SensorData) (*sensorpb.SensorResponse, error) {
+	msgCount.Inc()
+
+	if data.Temperature > 30 {
+		highTemp.Inc()
+		alert := fmt.Sprintf("High temperature alert! Sensor ID: %s, Temp: %.2f", data.DeviceId, data.Temperature)
+		s.producer.Send(ctx, &pulsar.ProducerMessage{
+			Payload: []byte(alert),
+		})
+		fmt.Println("Sent alert:", alert) 
+	}
+
+	return &sensorpb.SensorResponse{Status: "ok"}, nil
+}
+
 func init() {
 	prometheus.MustRegister(msgCount)
 	prometheus.MustRegister(highTemp)
@@ -33,13 +54,6 @@ func init() {
 func main() {
 	client := pulsar_client.NewClient()
 	defer client.Close()
-
-	consumer, _ := client.Subscribe(pulsar.ConsumerOptions{
-		Topic: "sensors",
-		SubscriptionName: "processor-sub",
-		Type:  pulsar.Shared,
-	})
-	defer consumer.Close()
 
 	producer, _ := client.CreateProducer(pulsar.ProducerOptions{
 		Topic: "alerts",
@@ -51,27 +65,15 @@ func main() {
 		http.ListenAndServe(":2112", nil)
 	}()
 
-	for {
-		msg, err := consumer.Receive(context.Background())
-		if err != nil {
-			fmt.Println("Error receiving message:", err)
-			continue
-		}
+	lis, err := net.Listen("tcp", ":50051")
+	if err != nil {
+		panic(err)
+	}
 
-		var sensorData model.SensorData
-		if err = json.Unmarshal(msg.Payload(), &sensorData); err == nil {
-			msgCount.Inc()
-			if sensorData.Temperature > 30.0 {
-				highTemp.Inc()
-				alert := fmt.Sprintf("High temperature alert! Sensor ID: %s, Temperature: %.2f", sensorData.DeviceID, sensorData.Temperature)
-				producer.Send(context.Background(), &pulsar.ProducerMessage{
-					Payload: []byte(alert),
-				})
-				fmt.Println("Sent alert:", alert)
-			}
-		}
-		consumer.Ack(msg)
-
-		time.Sleep(500 * time.Millisecond)
+	server := grpc.NewServer()
+	sensorpb.RegisterSensorServiceServer(server, &SensorServer{producer: producer})
+	fmt.Println("gRPC server listening on :50051")
+	if err := server.Serve(lis); err != nil {
+		panic(err)
 	}
 }

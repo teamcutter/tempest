@@ -44,28 +44,6 @@ services:
     depends_on:
       - prometheus
 
-  sensor:
-    build:
-      context: .
-      dockerfile: ./cmd/sensor/Dockerfile
-    container_name: sensor
-    depends_on:
-      pulsar:
-        condition: service_healthy
-    environment:
-      - PULSAR_URL=pulsar://pulsar:6650
-      - PULSAR_HTTP_URL=http://pulsar:8080
-    ports:
-      - "8081:8081"
-    networks:
-      - tempest-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
   processor:
     build:
       context: .
@@ -78,7 +56,8 @@ services:
       - PULSAR_URL=pulsar://pulsar:6650
       - PULSAR_HTTP_URL=http://pulsar:8080
     ports:
-      - "8082:2112"
+      - "8082:2112"  
+      - "50051:50051"
     networks:
       - tempest-network
     restart: unless-stopped
@@ -87,6 +66,21 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  sensor:
+    build:
+      context: .
+      dockerfile: ./cmd/sensor/Dockerfile
+    container_name: sensor
+    depends_on:
+      - processor
+    environment:
+      - PROCESSOR_ADDR=processor:50051
+    ports:
+      - "8081:8081"
+    networks:
+      - tempest-network
+    restart: unless-stopped
 
   alert-listener:
     build:
@@ -104,11 +98,6 @@ services:
     networks:
       - tempest-network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8083/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
 networks:
   tempest-network:

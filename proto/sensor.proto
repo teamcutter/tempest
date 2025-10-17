@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package sensorpb;
+
+option go_package = "github.com/teamcutter/tempest/internal/sensorpb;sensorpb";
+
+message SensorData {
+  string device_id = 1;
+  double temperature = 2;
+  double humidity = 3;
+  int64 timestamp = 4;
+}
+
+message SensorResponse {
+  string status = 1;
+}
+
+service SensorService {
+  rpc SendData (SensorData) returns (SensorResponse);
+}
