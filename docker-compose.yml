@@ -6,8 +6,6 @@ services:
       - "6650:6650"
       - "8080:8080"
     command: ["bin/pulsar", "standalone"]
-    environment:
-      - PULSAR_MEM=-Xms512m -Xmx512m
     networks:
       - tempest-network
     healthcheck:
