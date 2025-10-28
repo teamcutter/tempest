@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net"
 
@@ -12,43 +11,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/teamcutter/tempest/internal/pulsar_client"
 	"github.com/teamcutter/tempest/internal/sensorpb"
+	"github.com/teamcutter/tempest/internal/service"
+	"github.com/teamcutter/tempest/internal/shared"
 	"google.golang.org/grpc"
 )
 
-var (
-	msgCount = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "tempest_messages_total",
-		Help: "Amount of processed messages",
-	})
-	highTemp = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "tempest_high_temp_total",
-		Help: "Amount of messages with high temperature",
-	})
-)
-
-type SensorServer struct{
-	sensorpb.UnimplementedSensorServiceServer
-	producer pulsar.Producer
-}
-
-func (s *SensorServer) SendData(ctx context.Context, data *sensorpb.SensorData) (*sensorpb.SensorResponse, error) {
-	msgCount.Inc()
-
-	if data.Temperature > 30 {
-		highTemp.Inc()
-		alert := fmt.Sprintf("High temperature alert! Sensor ID: %s, Temp: %.2f", data.DeviceId, data.Temperature)
-		s.producer.Send(ctx, &pulsar.ProducerMessage{
-			Payload: []byte(alert),
-		})
-		fmt.Println("Sent alert:", alert) 
-	}
-
-	return &sensorpb.SensorResponse{Status: "ok"}, nil
-}
-
 func init() {
-	prometheus.MustRegister(msgCount)
-	prometheus.MustRegister(highTemp)
+	prometheus.MustRegister(shared.MsgCount)
+	prometheus.MustRegister(shared.HighTemp)
 }
 
 func main() {
@@ -71,7 +41,7 @@ func main() {
 	}
 
 	server := grpc.NewServer()
-	sensorpb.RegisterSensorServiceServer(server, &SensorServer{producer: producer})
+	sensorpb.RegisterSensorServiceServer(server, &service.SensorServer{Producer: producer})
 	fmt.Println("gRPC server listening on :50051")
 	if err := server.Serve(lis); err != nil {
 		panic(err)
