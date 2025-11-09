@@ -10,8 +10,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/teamcutter/tempest/internal/pulsar_client"
-	"github.com/teamcutter/tempest/internal/sensorpb"
 	"github.com/teamcutter/tempest/internal/sensor/service"
+	"github.com/teamcutter/tempest/internal/sensorpb"
 	"github.com/teamcutter/tempest/internal/shared"
 	"google.golang.org/grpc"
 )

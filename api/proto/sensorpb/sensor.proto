@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package sensorpb;
 
-option go_package = "github.com/teamcutter/tempest/internal/sensorpb;sensorpb";
+option go_package = "github.com/teamcutter/tempest/api/proto/sensorpb;sensorpb";
 
 message SensorData {
   string device_id = 1;
