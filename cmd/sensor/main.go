@@ -12,8 +12,8 @@ import (
 )
 
 func main() {
-	conn, err := grpc.NewClient("processor:50051", 
-	grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient("processor:50051",
+		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		panic(err)
 	}

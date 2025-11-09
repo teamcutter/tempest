@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	client :=  pulsar_client.NewClient()
+	client := pulsar_client.NewClient()
 	defer client.Close()
 
 	consumer, _ := client.Subscribe(pulsar.ConsumerOptions{

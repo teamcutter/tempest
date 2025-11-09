@@ -10,7 +10,7 @@ import (
 	"github.com/teamcutter/tempest/internal/shared"
 )
 
-type SensorServer struct{
+type SensorServer struct {
 	sensorpb.UnimplementedSensorServiceServer
 	Producer pulsar.Producer
 }
@@ -24,7 +24,7 @@ func (s *SensorServer) SendData(ctx context.Context, data *sensorpb.SensorData) 
 		s.Producer.Send(ctx, &pulsar.ProducerMessage{
 			Payload: []byte(alert),
 		})
-		log.Println("Sent alert:", alert) 
+		log.Println("Sent alert:", alert)
 	}
 
 	return &sensorpb.SensorResponse{Status: "ok"}, nil
